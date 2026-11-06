@@ -20,6 +20,22 @@ Abra o endereço exibido no terminal (por padrão, http://localhost:5173).
 
 Por padrão o app inicia em **modo demonstração** (`VITE_DEMO_MODE=true`), com respostas simuladas.
 Nenhuma requisição é feita ao backend nesse modo.
+## Subir backend
+
+`npm run backend` envia as mensagens pela **WhatsApp Cloud API (Meta)**. Ele não sobe sem as credenciais.
+Adicione ao `.env.local` (sem prefixo `VITE_`, para não ir ao bundle):
+
+```bash
+WHATSAPP_ACCESS_TOKEN=seu_token_de_acesso
+WHATSAPP_PHONE_NUMBER_ID=id_do_numero_no_painel_da_meta
+WHATSAPP_API_VERSION=v23.0   # opcional
+```
+
+Limitações da Cloud API:
+
+- Mensagens de texto livre só são entregues dentro da janela de 24 horas após o último contato do número com a sua conta. Fora dela, a Meta recusa o envio (erro `131047`), e é preciso usar um template aprovado.
+- A resposta da API confirma apenas que a Meta aceitou a mensagem (status `accepted`). A entrega e a leitura chegam depois, por webhook, que este backend ainda não trata.
+- Números precisam estar no formato E.164 e ter WhatsApp. A Meta reporta os que não têm.
 
 ## Scripts
 
