@@ -119,6 +119,7 @@ src/
 ├── lib/                         # regras puras (sem React)
 │   ├── phone.ts                 # validação e normalização E.164 (libphonenumber-js)
 │   ├── recipients.ts            # separação, deduplicação e contagem
+│   ├── csv.ts                   # leitura de lista CSV (nome e telefone)
 │   ├── message.ts               # limites e validação da mensagem
 │   └── format.ts                # pluralização e números em pt-BR
 ├── hooks/useMessageSender.ts    # estado do envio, resultados e proteção contra duplicidade
@@ -135,6 +136,21 @@ src/
 ```
 
 A interface depende apenas da interface `MessageApi`. Para trocar a implementação, basta alterar `services/index.ts`.
+
+## Importar lista CSV
+
+Em **Destinatários**, o campo “Importar lista CSV” aceita um arquivo com nome e telefone:
+
+```csv
+nome,telefone
+Maria Silva,+55 81 99999-9999
+"Silva, João",+55 81 98888-8888
+```
+
+- A primeira linha é o cabeçalho. A coluna de telefone é obrigatória (`telefone`, `fone`, `celular` ou `whatsapp`); a de nome é opcional.
+- Separador vírgula ou ponto e vírgula (o padrão do Excel em português). Campos com vírgula devem estar entre aspas.
+- Linhas sem telefone são ignoradas. Números sem `+` e código do país ficam como inválidos, com a mesma regra da entrada manual.
+- O nome aparece na lista e nos resultados. A mensagem enviada é a mesma para todos; o nome não é inserido no texto.
 
 ## Modo demonstração
 

@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { parsePhone } from './phone';
-import { addRecipients, createRecipient, splitRecipients } from './recipients';
+import { addRecipients, createRecipient, recipientLabel, splitRecipients } from './recipients';
 import { countCharacters, getMessageError, MAX_MESSAGE_LENGTH } from './message';
+import { parseContactsCsv } from './csv';
 
 describe('parsePhone', () => {
   it('normaliza número brasileiro para E.164 e formata para exibição', () => {
@@ -39,12 +40,12 @@ describe('splitRecipients', () => {
 
 describe('addRecipients', () => {
   it('remove duplicados existentes e dentro do próprio lote, e conta quantos foram removidos', () => {
-    const current = [createRecipient('+55 81 99999-9999')];
+    const current = [createRecipient({ phone: '+55 81 99999-9999' })];
     const result = addRecipients(current, [
-      '+5581999999999',
-      '+55 81 99999-9999',
-      '+55 81 98888-8888',
-      '+55 81 98888-8888',
+      { phone: '+5581999999999' },
+      { phone: '+55 81 99999-9999' },
+      { phone: '+55 81 98888-8888' },
+      { phone: '+55 81 98888-8888' },
     ]);
 
     expect(result.recipients).toHaveLength(2);
@@ -53,11 +54,80 @@ describe('addRecipients', () => {
   });
 
   it('mantém números inválidos na lista, sinalizados com explicação', () => {
-    const result = addRecipients([], ['81 99999-9999']);
+    const result = addRecipients([], [{ phone: '81 99999-9999' }]);
 
     expect(result.invalidAdded).toBe(1);
     expect(result.recipients[0].error).toBeTruthy();
     expect(result.recipients[0].e164).toBeUndefined();
+  });
+
+  it('guarda o nome do contato e o exibe junto ao número', () => {
+    const result = addRecipients([], [{ name: 'Maria Silva', phone: '+55 81 99999-9999' }]);
+    const [recipient] = result.recipients;
+
+    expect(recipient.name).toBe('Maria Silva');
+    expect(recipient.e164).toBe('+5581999999999');
+    expect(recipientLabel(recipient)).toBe('Maria Silva · +55 81 99999-9999');
+  });
+
+  it('usa só o número quando não há nome', () => {
+    const [recipient] = addRecipients([], [{ phone: '+55 81 99999-9999' }]).recipients;
+
+    expect(recipientLabel(recipient)).toBe('+55 81 99999-9999');
+  });
+});
+
+describe('parseContactsCsv', () => {
+  it('lê nome e telefone com cabeçalho separado por vírgula', () => {
+    expect(parseContactsCsv('nome,telefone\nMaria,+5581999999999\nJoão,+5581988888888')).toEqual({
+      ok: true,
+      contacts: [
+        { name: 'Maria', phone: '+5581999999999' },
+        { name: 'João', phone: '+5581988888888' },
+      ],
+      skipped: 0,
+    });
+  });
+
+  it('aceita ponto e vírgula, BOM, CRLF e cabeçalhos com acento ou maiúsculas', () => {
+    const result = parseContactsCsv('\uFEFFNome;Número\r\nAna;+5581999999999\r\n');
+
+    expect(result).toEqual({
+      ok: true,
+      contacts: [{ name: 'Ana', phone: '+5581999999999' }],
+      skipped: 0,
+    });
+  });
+
+  it('respeita campos entre aspas, com vírgula e aspas escapadas', () => {
+    const result = parseContactsCsv('nome,fone\n"Silva, Maria ""Mari""",+5581999999999');
+
+    expect(result.ok && result.contacts[0].name).toBe('Silva, Maria "Mari"');
+  });
+
+  it('aceita a coluna de nome ausente', () => {
+    expect(parseContactsCsv('telefone\n+5581999999999')).toEqual({
+      ok: true,
+      contacts: [{ phone: '+5581999999999' }],
+      skipped: 0,
+    });
+  });
+
+  it('ignora linhas sem telefone e conta quantas foram', () => {
+    const result = parseContactsCsv('nome,telefone\nMaria,\n,\nJoão,+5581988888888');
+
+    expect(result.ok && result.contacts).toEqual([{ name: 'João', phone: '+5581988888888' }]);
+    expect(result.ok && result.skipped).toBe(1);
+  });
+
+  it('recusa arquivo sem coluna de telefone', () => {
+    const result = parseContactsCsv('nome,email\nMaria,maria@exemplo.com');
+
+    expect(result.ok).toBe(false);
+  });
+
+  it('recusa arquivo vazio', () => {
+    expect(parseContactsCsv('  \n\n').ok).toBe(false);
   });
 });
 

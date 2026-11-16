@@ -12,9 +12,9 @@ import { SendResult, type ResultRow } from './components/send/SendResult';
 import { useMessageSender } from './hooks/useMessageSender';
 import { pluralize } from './lib/format';
 import { getMessageError } from './lib/message';
-import { addRecipients, type AddRecipientsResult } from './lib/recipients';
+import { addRecipients, recipientLabel, type AddRecipientsResult } from './lib/recipients';
 import { createMessageApi, type DemoScenario } from './services';
-import type { Recipient } from './types/messaging';
+import type { Contact, Recipient } from './types/messaging';
 
 interface PendingSend {
   title: string;
@@ -49,7 +49,7 @@ export default function App() {
     return [
       {
         recipient: recipient.e164,
-        name: recipient.display ?? recipient.e164,
+        name: recipientLabel(recipient),
         status: outcome.status,
         error: outcome.error,
       },
@@ -57,8 +57,8 @@ export default function App() {
   });
   const failedNumbers = rows.filter((row) => row.status === 'failed').map((row) => row.recipient);
 
-  function handleAdd(rawNumbers: string[]): AddRecipientsResult {
-    const result = addRecipients(recipients, rawNumbers);
+  function handleAdd(contacts: Contact[]): AddRecipientsResult {
+    const result = addRecipients(recipients, contacts);
     setRecipients(result.recipients);
     return result;
   }

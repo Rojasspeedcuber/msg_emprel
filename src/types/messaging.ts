@@ -1,8 +1,16 @@
+/** Pessoa informada com número, por exemplo, uma linha do CSV. */
+export interface Contact {
+  name?: string;
+  phone: string;
+}
+
 export interface Recipient {
   /** Chave única: o número E.164 quando válido, ou o texto original quando inválido. */
   key: string;
   /** Texto digitado ou colado pelo usuário. */
   input: string;
+  /** Nome da pessoa, quando veio de uma lista com nome (CSV). */
+  name?: string;
   /** Número normalizado no formato internacional, ex.: +5581999999999. */
   e164?: string;
   /** Número formatado para exibição, ex.: +55 81 99999-9999. */

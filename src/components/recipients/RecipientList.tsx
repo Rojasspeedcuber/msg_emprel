@@ -1,6 +1,7 @@
 import { Button } from '../ui/Button';
 import { Card } from '../ui/Card';
 import { pluralize } from '../../lib/format';
+import { recipientLabel } from '../../lib/recipients';
 import type { Recipient } from '../../types/messaging';
 
 interface RecipientListProps {
@@ -43,13 +44,15 @@ export function RecipientList({ recipients, onRemove, onClear }: RecipientListPr
       ) : (
         <ul className="max-h-96 divide-y divide-slate-100 overflow-y-auto rounded-lg ring-1 ring-inset ring-slate-200">
           {recipients.map((recipient, index) => {
-            const label = recipient.display ?? recipient.input;
+            const phone = recipient.display ?? recipient.input;
+            const label = recipientLabel(recipient);
             const errorId = recipient.error ? `recipient-error-${index}` : undefined;
 
             return (
               <li key={recipient.key} className="flex items-start justify-between gap-3 px-4 py-3">
                 <div className="min-w-0">
-                  <p className="break-all font-medium text-slate-900">{label}</p>
+                  <p className="break-all font-medium text-slate-900">{recipient.name ?? phone}</p>
+                  {recipient.name && <p className="break-all text-sm text-slate-600">{phone}</p>}
                   {recipient.error && (
                     <p id={errorId} className="mt-0.5 text-sm text-red-600">
                       {recipient.error}

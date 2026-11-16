@@ -1,13 +1,15 @@
-import { useState, type FormEvent } from 'react';
+import { useState, type ChangeEvent, type FormEvent } from 'react';
 import { Button } from '../ui/Button';
 import { Card } from '../ui/Card';
 import { Field, describedBy, inputClass } from '../ui/Field';
 import { parsePhone, PHONE_FORMAT_HINT } from '../../lib/phone';
+import { CSV_FORMAT_HINT, parseContactsCsv } from '../../lib/csv';
 import { splitRecipients, type AddRecipientsResult } from '../../lib/recipients';
 import { pluralize } from '../../lib/format';
+import type { Contact } from '../../types/messaging';
 
 interface RecipientFormProps {
-  onAdd: (rawNumbers: string[]) => AddRecipientsResult;
+  onAdd: (contacts: Contact[]) => AddRecipientsResult;
 }
 
 interface Feedback {
@@ -20,6 +22,7 @@ export function RecipientForm({ onAdd }: RecipientFormProps) {
   const [singleError, setSingleError] = useState<string | null>(null);
   const [pasted, setPasted] = useState('');
   const [pasteError, setPasteError] = useState<string | null>(null);
+  const [csvError, setCsvError] = useState<string | null>(null);
   const [feedback, setFeedback] = useState<Feedback | null>(null);
 
   function handleSingleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -39,7 +42,7 @@ export function RecipientForm({ onAdd }: RecipientFormProps) {
       }
     }
 
-    const result = onAdd(items);
+    const result = onAdd(items.map((phone) => ({ phone })));
     setSingleError(null);
     setSingle('');
     setFeedback(buildFeedback(result));
@@ -54,10 +57,32 @@ export function RecipientForm({ onAdd }: RecipientFormProps) {
       return;
     }
 
-    const result = onAdd(items);
+    const result = onAdd(items.map((phone) => ({ phone })));
     setPasteError(null);
     setPasted('');
     setFeedback(buildFeedback(result));
+  }
+
+  async function handleCsvChange(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+    if (!file) return;
+
+    const parsed = parseContactsCsv(await file.text());
+    if (!parsed.ok) {
+      setCsvError(parsed.error);
+      setFeedback(null);
+      return;
+    }
+    if (parsed.contacts.length === 0) {
+      setCsvError('Nenhuma linha com telefone foi encontrada no arquivo.');
+      setFeedback(null);
+      return;
+    }
+
+    const result = onAdd(parsed.contacts);
+    setCsvError(null);
+    setFeedback(buildFeedback(result, parsed.skipped));
   }
 
   return (
@@ -121,6 +146,25 @@ export function RecipientForm({ onAdd }: RecipientFormProps) {
           </Button>
         </form>
 
+        <div className="space-y-3">
+          <Field
+            id="csv-file"
+            label="Importar lista CSV"
+            hint={CSV_FORMAT_HINT}
+            error={csvError}
+          >
+            <input
+              id="csv-file"
+              type="file"
+              accept=".csv,text/csv"
+              onChange={handleCsvChange}
+              aria-invalid={csvError ? true : undefined}
+              aria-describedby={describedBy('csv-file', { hint: true, error: csvError })}
+              className="block w-full text-sm text-slate-700 file:mr-3 file:rounded-lg file:border-0 file:bg-slate-100 file:px-3 file:py-2 file:font-medium file:text-slate-700 hover:file:bg-slate-200"
+            />
+          </Field>
+        </div>
+
         {feedback && (
           <p
             role="status"
@@ -142,7 +186,7 @@ export function RecipientForm({ onAdd }: RecipientFormProps) {
   );
 }
 
-function buildFeedback(result: AddRecipientsResult): Feedback {
+function buildFeedback(result: AddRecipientsResult, skipped = 0): Feedback {
   const parts: string[] = [];
 
   if (result.added > 0) {
@@ -155,6 +199,10 @@ function buildFeedback(result: AddRecipientsResult): Feedback {
     parts.push(`${pluralize(result.duplicatesRemoved, 'duplicado removido', 'duplicados removidos')}.`);
   }
 
+  if (skipped > 0) {
+    parts.push(`${pluralize(skipped, 'linha sem telefone ignorada', 'linhas sem telefone ignoradas')}.`);
+  }
+
   if (result.invalidAdded > 0) {
     parts.push(
       `${pluralize(result.invalidAdded, 'número inválido', 'números inválidos')} na lista: corrija ou remova antes de enviar.`,
@@ -162,7 +210,7 @@ function buildFeedback(result: AddRecipientsResult): Feedback {
   }
 
   return {
-    tone: result.invalidAdded > 0 ? 'warning' : 'success',
+    tone: result.invalidAdded > 0 || skipped > 0 ? 'warning' : 'success',
     text: parts.join(' '),
   };
 }
